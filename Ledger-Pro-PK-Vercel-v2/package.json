@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "npm run test && next build",
     "start": "next start",
-    "test": "node --experimental-strip-types --experimental-default-type=module --test tests/*.test.ts",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
     "check": "npm run build"
   },
   "dependencies": {

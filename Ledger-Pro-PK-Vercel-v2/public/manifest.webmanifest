@@ -1,0 +1,10 @@
+{
+  "name": "Ledger Pro PK",
+  "short_name": "LedgerPro",
+  "description": "Secure ledger and business management for Pakistan",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f6fb",
+  "theme_color": "#0b1730",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

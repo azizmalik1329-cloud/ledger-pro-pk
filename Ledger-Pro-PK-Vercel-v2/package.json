@@ -5,10 +5,10 @@
   "engines": { "node": "22.x" },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run test && next build",
     "start": "next start",
     "test": "node --experimental-strip-types --experimental-default-type=module --test tests/*.test.ts",
-    "check": "npm run test && npm run build"
+    "check": "npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.57.4",

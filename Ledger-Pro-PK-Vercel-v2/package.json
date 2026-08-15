@@ -2,7 +2,7 @@
   "name": "ledger-pro-pk",
   "version": "2.0.0",
   "private": true,
-  "engines": { "node": "22.x" },
+  "engines": { "node": "24.x" },
   "scripts": {
     "dev": "next dev",
     "build": "npm run test && next build",

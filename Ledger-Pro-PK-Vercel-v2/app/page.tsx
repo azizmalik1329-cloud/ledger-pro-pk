@@ -92,11 +92,11 @@ export default function Page(){
       <div className="brand"><b>LP</b><span><strong>Ledger Pro PK</strong><small>BUSINESS OS</small></span></div>
       <div className="business"><i>{businessName[0]?.toUpperCase()}</i><span><small>Mera business</small><b>{businessName}</b></span></div>
       <p className="menuLabel">MENU</p>
-      <nav>{nav.map(([key,label,icon])=><button key={key} className={section===key?"active":""} onClick={()=>{setSection(key);setSearch("")}}><i>{icon}</i><span><b>{label}</b><small>{key==="dashboard"?"Mukhtasar jaiza":"Record manage karein"}</small></span></button>)}</nav>
+      <nav>{nav.map(([key,label,icon])=><button key={key} className={section===key?"active":""} onClick={()=>{setSection(key);setSearch("")}}><i>{icon}</i><span><b>{label}</b><small>{key==="dashboard"?"Mukhtasar jaiza":"Record manage karein"}</small></span></button>)}{isPlatformAdmin&&<button onClick={()=>window.location.assign("/admin")}><i>♛</i><span><b>Super Admin</b><small>Platform management</small></span></button>}</nav>
       <div className="secure"><i/><span><b>Supabase secured</b><small>RLS data protection</small></span></div>
     </aside>
     <section className="workspace">
-      <header><div className="mobileBrand">LP</div><div className="mobileTitle"><b>{nav.find(n=>n[0]===section)?.[1]}</b><small>{businessName}</small></div><label className="search"><span>⌕</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Naam, invoice ya item talash karein…"/></label><div className="topActions"><button aria-label="Theme" onClick={toggleDark}>{dark?"☀":"☾"}</button>{isPlatformAdmin&&<a className="adminLink" href="/admin">Super Admin</a>}<span className="user"><b>{session.user.email?.split("@")[0]}</b><small>{role}</small></span><button className="logout" onClick={()=>supabase.auth.signOut()}>Logout</button></div></header>
+      <header><div className="mobileBrand">LP</div><div className="mobileTitle"><b>{nav.find(n=>n[0]===section)?.[1]}</b><small>{businessName}</small></div><label className="search"><span>⌕</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Naam, invoice ya item talash karein…"/></label><div className="topActions"><button aria-label="Theme" onClick={toggleDark}>{dark?"☀":"☾"}</button><span className="user"><b>{session.user.email?.split("@")[0]}</b><small>{role}</small></span><button className="logout" onClick={()=>supabase.auth.signOut()}>Logout</button></div></header>
       <div className="content">
         <div className="heading"><div><small>{new Date().toLocaleDateString("en-PK",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</small><h1>{nav.find(n=>n[0]===section)?.[1]}</h1><p>Business ki real-time maloomat secure database se.</p></div><div><button className="ghost" onClick={exportCsv}>⇩ Export</button><button className="primary" onClick={()=>open(section==="contacts"?"contact":section==="stock"?"product":"transaction")}>＋ Naya record</button></div></div>
         {section==="dashboard"&&<Dashboard stats={{saleTotal,purchaseTotal,cashIn,cashOut}} transactions={transactions.slice(0,6)} contacts={contacts} products={products} open={open} canManage={canManage}/>} 
@@ -108,7 +108,7 @@ export default function Page(){
         {section==="reports"&&<Reports saleTotal={saleTotal} purchaseTotal={purchaseTotal} cashIn={cashIn} cashOut={cashOut} contacts={contacts} transactions={transactions}/>} 
         {section==="settings"&&business&&<Settings business={business} role={role} members={members} audit={audit} reload={loadApp}/>} 
       </div>
-      <nav className="mobileNav">{nav.map(([key,label,icon])=><button key={key} className={section===key?"active":""} onClick={()=>{setSection(key);setSearch("")}}><i>{icon}</i><small>{label}</small></button>)}</nav>
+      <nav className="mobileNav">{nav.map(([key,label,icon])=><button key={key} className={section===key?"active":""} onClick={()=>{setSection(key);setSearch("")}}><i>{icon}</i><small>{label}</small></button>)}{isPlatformAdmin&&<button onClick={()=>window.location.assign("/admin")}><i>♛</i><small>Admin</small></button>}</nav>
     </section>
     {modal==="contact"&&<ContactModal businessId={businessId} item={editing as Contact|null} busy={busy} setBusy={setBusy} close={close} done={()=>{close();toast("Khata mehfooz ho gaya");loadApp()}}/>}
     {modal==="product"&&<ProductModal businessId={businessId} item={editing as Product|null} busy={busy} setBusy={setBusy} close={close} done={()=>{close();toast("Product mehfooz ho gaya");loadApp()}}/>}

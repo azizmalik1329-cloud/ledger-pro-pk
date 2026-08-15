@@ -2,11 +2,13 @@
   "name": "ledger-pro-pk",
   "version": "2.0.0",
   "private": true,
-  "engines": { "node": ">=22.0.0" },
+  "engines": { "node": "22.x" },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node --experimental-strip-types --experimental-default-type=module --test tests/*.test.ts",
+    "check": "npm run test && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.57.4",

@@ -23,6 +23,7 @@ const txLabel:Record<Tx["type"],string>={sale:"Farokht",purchase:"Khareedari",pa
 
 export default function Page(){
   const [session,setSession]=useState<Session|null>(null),[booting,setBooting]=useState(true);
+  const [isPlatformAdmin,setIsPlatformAdmin]=useState(false);
   const [recovering,setRecovering]=useState(false);
   const [section,setSection]=useState<Section>("dashboard"),[dark,setDark]=useState(false),[search,setSearch]=useState("");
   const [businessId,setBusinessId]=useState(""),[businessName,setBusinessName]=useState("Mera Business"),[role,setRole]=useState("");
@@ -37,12 +38,16 @@ export default function Page(){
     const {data:{subscription}}=supabase.auth.onAuthStateChange((event,s)=>{if(event==="PASSWORD_RECOVERY")setRecovering(true);setSession(s);setBooting(false)});
     return()=>subscription.unsubscribe();
   },[]);
-  useEffect(()=>{if(session) loadApp(); else {setBusinessId("");setContacts([]);setProducts([]);setTransactions([])}},[session]);
+  useEffect(()=>{if(session) loadApp(); else {setIsPlatformAdmin(false);setBusinessId("");setContacts([]);setProducts([]);setTransactions([])}},[session]);
   const toast=(message:string)=>{setNotice(message);window.setTimeout(()=>setNotice(""),2600)};
   const toggleDark=()=>setDark(v=>{localStorage.setItem("ledger-dark",!v?"1":"0");return !v});
 
   async function loadApp(){
-    const {data:membership,error}=await supabase.from("business_members").select("business_id,role,businesses(id,name,currency,status,plan,trial_ends_at,plan_expires_at,phone,address,tax_number,invoice_prefix,max_members,max_monthly_transactions)").limit(1).maybeSingle();
+    const [{data:membership,error},{data:platformAdmin}]=await Promise.all([
+      supabase.from("business_members").select("business_id,role,businesses(id,name,currency,status,plan,trial_ends_at,plan_expires_at,phone,address,tax_number,invoice_prefix,max_members,max_monthly_transactions)").limit(1).maybeSingle(),
+      supabase.rpc("platform_admin_me")
+    ]);
+    setIsPlatformAdmin(Boolean(platformAdmin));
     if(error){toast(error.message);return}
     if(!membership){toast("Business profile tayyar nahi hua. Dobara login karein.");return}
     const bid=membership.business_id as string; setBusinessId(bid);setRole(membership.role as string);
@@ -91,7 +96,7 @@ export default function Page(){
       <div className="secure"><i/><span><b>Supabase secured</b><small>RLS data protection</small></span></div>
     </aside>
     <section className="workspace">
-      <header><div className="mobileBrand">LP</div><div className="mobileTitle"><b>{nav.find(n=>n[0]===section)?.[1]}</b><small>{businessName}</small></div><label className="search"><span>⌕</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Naam, invoice ya item talash karein…"/></label><div className="topActions"><button aria-label="Theme" onClick={toggleDark}>{dark?"☀":"☾"}</button><span className="user"><b>{session.user.email?.split("@")[0]}</b><small>{role}</small></span><button className="logout" onClick={()=>supabase.auth.signOut()}>Logout</button></div></header>
+      <header><div className="mobileBrand">LP</div><div className="mobileTitle"><b>{nav.find(n=>n[0]===section)?.[1]}</b><small>{businessName}</small></div><label className="search"><span>⌕</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Naam, invoice ya item talash karein…"/></label><div className="topActions"><button aria-label="Theme" onClick={toggleDark}>{dark?"☀":"☾"}</button>{isPlatformAdmin&&<a className="adminLink" href="/admin">Super Admin</a>}<span className="user"><b>{session.user.email?.split("@")[0]}</b><small>{role}</small></span><button className="logout" onClick={()=>supabase.auth.signOut()}>Logout</button></div></header>
       <div className="content">
         <div className="heading"><div><small>{new Date().toLocaleDateString("en-PK",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</small><h1>{nav.find(n=>n[0]===section)?.[1]}</h1><p>Business ki real-time maloomat secure database se.</p></div><div><button className="ghost" onClick={exportCsv}>⇩ Export</button><button className="primary" onClick={()=>open(section==="contacts"?"contact":section==="stock"?"product":"transaction")}>＋ Naya record</button></div></div>
         {section==="dashboard"&&<Dashboard stats={{saleTotal,purchaseTotal,cashIn,cashOut}} transactions={transactions.slice(0,6)} contacts={contacts} products={products} open={open} canManage={canManage}/>} 

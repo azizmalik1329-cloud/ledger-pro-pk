@@ -54,6 +54,7 @@ as $$
 declare
   n bigint;
   prefix text;
+  candidate text;
 begin
   if p_type='sale' then
     select coalesce(nullif(upper(trim(invoice_prefix)),''),'INV') into prefix from public.businesses where id=p_business_id;
@@ -62,13 +63,17 @@ begin
   end if;
   if prefix is null then raise exception 'Business not found'; end if;
 
-  insert into public.business_reference_sequences(business_id,entry_type,next_number)
-  values(p_business_id,p_type,2)
-  on conflict(business_id,entry_type) do update
-    set next_number=public.business_reference_sequences.next_number+1
-  returning next_number-1 into n;
+  loop
+    insert into public.business_reference_sequences(business_id,entry_type,next_number)
+    values(p_business_id,p_type,2)
+    on conflict(business_id,entry_type) do update
+      set next_number=public.business_reference_sequences.next_number+1
+    returning next_number-1 into n;
 
-  return prefix||'-'||lpad(n::text,6,'0');
+    candidate:=prefix||'-'||lpad(n::text,6,'0');
+    exit when not exists(select 1 from public.transactions where business_id=p_business_id and reference=candidate);
+  end loop;
+  return candidate;
 end;
 $$;
 
@@ -195,6 +200,14 @@ declare
   v_unit_cost numeric;
   legacy_input boolean := false;
 begin
+  new.discount_type:=coalesce(new.discount_type,'none');
+  new.discount_value:=coalesce(new.discount_value,0);
+  new.discount_amount:=coalesce(new.discount_amount,0);
+  new.unit_price:=coalesce(new.unit_price,0);
+  new.gross_amount:=coalesce(new.gross_amount,0);
+  new.unit_cost:=coalesce(new.unit_cost,0);
+  new.paid_amount:=coalesce(new.paid_amount,0);
+
   if tg_op='INSERT' then
     new.is_void := false;
     new.voided_at := null;
@@ -220,6 +233,8 @@ begin
     if new.reference is null or trim(new.reference)='' then
       new.reference := private.next_business_reference(new.business_id,new.type);
     end if;
+  elsif new.reference is null or trim(new.reference)='' then
+    new.reference:=old.reference;
   end if;
 
   if new.reference is not null and trim(new.reference)<>'' then new.reference:=upper(trim(new.reference)); end if;
@@ -242,9 +257,9 @@ begin
     end if;
 
     if tg_op='INSERT' then
-      legacy_input := coalesce(new.unit_price,0)<=0;
+      legacy_input := new.unit_price<=0;
     else
-      legacy_input := coalesce(new.unit_price,0)<=0
+      legacy_input := new.unit_price<=0
         or (new.unit_price is not distinct from old.unit_price
             and new.gross_amount is not distinct from old.gross_amount
             and new.discount_type='none'
@@ -277,7 +292,8 @@ begin
 
     if new.paid_amount<0 or new.paid_amount>new.amount then raise exception 'Paid amount 0 aur net total ke darmiyan hona chahiye'; end if;
     if new.paid_amount<new.amount and new.contact_id is null then
-      raise exception case when new.type='sale' then 'Credit sale ke liye customer lazmi hai' else 'Credit purchase ke liye supplier lazmi hai' end;
+      if new.type='sale' then raise exception 'Credit sale ke liye customer lazmi hai';
+      else raise exception 'Credit purchase ke liye supplier lazmi hai'; end if;
     end if;
     new.status:=case when new.paid_amount>=new.amount then 'paid' when new.paid_amount>0 then 'partial' else 'unpaid' end;
 
@@ -296,7 +312,8 @@ begin
   else
     if new.amount<=0 then raise exception 'Amount zero se zyada hona chahiye'; end if;
     if new.type in ('payment_in','payment_out') and new.contact_id is null then
-      raise exception case when new.type='payment_in' then 'Wasooli ke liye customer lazmi hai' else 'Adayegi ke liye supplier lazmi hai' end;
+      if new.type='payment_in' then raise exception 'Wasooli ke liye customer lazmi hai';
+      else raise exception 'Adayegi ke liye supplier lazmi hai'; end if;
     end if;
     if new.type='expense' then new.contact_id:=null; end if;
     new.product_id:=null;new.quantity:=null;new.unit_price:=0;new.gross_amount:=round(new.amount::numeric,2);

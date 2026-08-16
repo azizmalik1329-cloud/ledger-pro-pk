@@ -4,11 +4,14 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { cashInForTransaction, cashOutForTransaction, summarizeAccounting } from "@/lib/accounting";
+import { localDateInputValue } from "@/lib/pricing";
+import ProTransactionModal from "./pro-transaction-modal";
+import ProProductModal from "./pro-product-modal";
 
 type Section = "dashboard" | "contacts" | "sales" | "purchases" | "stock" | "cash" | "reports" | "settings";
 type Contact = { id:string; business_id:string; type:"customer"|"supplier"; name:string; phone:string|null; email:string|null; opening_balance:number; notes:string|null; is_active:boolean; created_at:string };
 type Product = { id:string; business_id:string; name:string; sku:string|null; unit:string; sale_price:number; purchase_price:number; base_purchase_price:number; stock_quantity:number; low_stock_level:number; is_active:boolean };
-type Tx = { id:string; business_id:string; contact_id:string|null; product_id:string|null; quantity:number|null; type:"sale"|"purchase"|"payment_in"|"payment_out"|"expense"; reference:string|null; amount:number; paid_amount:number; cost_amount:number; transaction_date:string; notes:string|null; status:"paid"|"partial"|"unpaid"; is_void:boolean; voided_at:string|null; voided_by:string|null; void_reason:string|null; created_at:string };
+type Tx = { id:string; business_id:string; contact_id:string|null; product_id:string|null; quantity:number|null; type:"sale"|"purchase"|"payment_in"|"payment_out"|"expense"; reference:string|null; unit_price:number; gross_amount:number; discount_type:"none"|"amount"|"percent"; discount_value:number; discount_amount:number; amount:number; paid_amount:number; unit_cost:number; cost_amount:number; transaction_date:string; notes:string|null; status:"paid"|"partial"|"unpaid"; is_void:boolean; voided_at:string|null; voided_by:string|null; void_reason:string|null; created_at:string };
 type Business = {id:string;name:string;currency:string;status:"active"|"suspended"|"archived";plan:"free"|"pro"|"business";trial_ends_at:string|null;plan_expires_at:string|null;phone:string|null;address:string|null;tax_number:string|null;invoice_prefix:string;max_members:number;max_monthly_transactions:number};
 type Membership = {business_id:string;role:"owner"|"manager"|"staff";businesses:Business|null};
 type Member = {user_id:string;email:string;full_name:string;role:"owner"|"manager"|"staff";created_at:string};
@@ -21,7 +24,7 @@ const nav: [Section,string,string][] = [
   ["purchases","Khareedari","↙"], ["stock","Stock","□"], ["cash","Cash","₨"], ["reports","Reports","⌁"], ["settings","Settings","⚙"]
 ];
 const money=(n:number)=>`Rs. ${Number(n||0).toLocaleString("en-PK",{maximumFractionDigits:2})}`;
-const today=()=>new Date().toISOString().slice(0,10);
+const today=()=>localDateInputValue();
 const txLabel:Record<Tx["type"],string>={sale:"Farokht",purchase:"Khareedari",payment_in:"Wasooli",payment_out:"Adayegi",expense:"Kharcha"};
 const primaryMobile:Section[]=["dashboard","contacts","sales","stock"];
 
@@ -78,9 +81,9 @@ export default function Page(){
       supabase.rpc("platform_admin_me")
     ]);
     if(seq!==loadSeq.current)return;
-    setIsPlatformAdmin(Boolean(platformAdmin));
-    if(error||adminError){
-      setAccountError(error?.message||adminError?.message||"Account load nahi ho saka.");
+    setIsPlatformAdmin(adminError?false:Boolean(platformAdmin));
+    if(error){
+      setAccountError(error.message||"Account load nahi ho saka.");
       setAccountResolved(true);setAccountLoading(false);return;
     }
 
@@ -95,6 +98,7 @@ export default function Page(){
     const membership=rows.find(x=>x.business_id===saved)||rows[0];
     const bid=membership.business_id;const details=membership.businesses;
     localStorage.setItem("ledger-business-id",bid);
+    setContacts([]);setProducts([]);setTransactions([]);
     setBusinessId(bid);setRole(membership.role);setBusiness(details);setBusinessName(details?.name||"Mera Business");setSearch("");
     setMembers([]);setAudit([]);setSettingsLoadedFor("");
 
@@ -109,7 +113,10 @@ export default function Page(){
       supabase.from("transactions").select("*").eq("business_id",bid).eq("is_void",false).order("transaction_date",{ascending:false}).order("created_at",{ascending:false})
     ]);
     if(seq!==loadSeq.current)return;
-    if(c.error||p.error||t.error)toast(c.error?.message||p.error?.message||t.error?.message||"Data load error");
+    if(c.error||p.error||t.error){
+      setAccountError(c.error?.message||p.error?.message||t.error?.message||"Financial data load nahi ho saka.");
+      setAccountResolved(true);setAccountLoading(false);return;
+    }
     setContacts((c.data||[]) as Contact[]);setProducts((p.data||[]) as Product[]);setTransactions((t.data||[]) as Tx[]);
     setAccountResolved(true);setAccountLoading(false);
   }
@@ -165,13 +172,13 @@ export default function Page(){
       const {error}=await supabase.rpc("void_transaction",{p_business_id:businessId,p_transaction_id:id,p_reason:reason.trim()});
       if(error)return toast(error.message);toast("Transaction void ho gayi aur stock safely reverse ho gaya");void reloadTransactionsAndProducts();return;
     }
-    if(!window.confirm(`${label} delete karna hai?`))return;
-    const {error}=await supabase.from("products").delete().eq("id",id).eq("business_id",businessId);
-    if(error)return toast(error.message);toast("Unused product delete ho gaya");void reloadProducts();
+    if(!window.confirm(`${label} ko archive karna hai? Product history mehfooz rahegi. Stock pehle zero hona chahiye.`))return;
+    const {error}=await supabase.rpc("archive_product",{p_business_id:businessId,p_product_id:id});
+    if(error)return toast(error.message);toast("Product archive ho gaya");void reloadProducts();
   }
 
   function exportCsv(){
-    const rows=[["Date","Type","Reference","Contact","Product","Quantity","Amount","Paid","Cost","Status"],...transactions.map(t=>[t.transaction_date,txLabel[t.type],t.reference||"",contacts.find(c=>c.id===t.contact_id)?.name||"",products.find(p=>p.id===t.product_id)?.name||"",t.quantity||"",t.amount,t.paid_amount,t.cost_amount,t.status])];
+    const rows=[["Date","Type","Reference","Contact","Product","Quantity","Unit Rate","Gross","Discount","Net Amount","Paid","Due","Cost","Status"],...transactions.map(t=>[t.transaction_date,txLabel[t.type],t.reference||"",contacts.find(c=>c.id===t.contact_id)?.name||"",products.find(p=>p.id===t.product_id)?.name||"",t.quantity||"",t.unit_price||"",t.gross_amount||t.amount,t.discount_amount||0,t.amount,t.paid_amount,Math.max(0,t.amount-t.paid_amount),t.cost_amount,t.status])];
     const csv=rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");
     const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download=`ledger-${businessName.replace(/\s+/g,"-").toLowerCase()}-${today()}.csv`;a.click();URL.revokeObjectURL(a.href);toast("CSV report download ho gayi");
   }
@@ -223,8 +230,8 @@ export default function Page(){
       <nav className="mobileNav">{primaryMobile.map(key=>{const item=nav.find(n=>n[0]===key)!;return <button key={key} className={section===key?"active":""} onClick={()=>goto(key)}><i>{item[2]}</i><small>{item[1]}</small></button>})}<button className={!primaryMobile.includes(section)?"active":""} onClick={()=>setMobileMore(v=>!v)}><i>•••</i><small>More</small></button></nav>
     </section>
     {modal==="contact"&&<ContactModal businessId={businessId} item={editing as Contact|null} busy={busy} setBusy={setBusy} close={close} done={()=>{close();toast("Khata mehfooz ho gaya");void reloadContacts()}}/>}
-    {modal==="product"&&<ProductModal businessId={businessId} item={editing as Product|null} busy={busy} setBusy={setBusy} close={close} done={()=>{close();toast("Product mehfooz ho gaya");void reloadProducts()}}/>}
-    {modal==="transaction"&&<TransactionModal businessId={businessId} item={editing as Tx|null} defaultType={defaultTxType} contacts={contacts} products={products} busy={busy} setBusy={setBusy} close={close} done={()=>{close();toast("Transaction aur stock update ho gaye");void reloadTransactionsAndProducts()}}/>}
+    {modal==="product"&&<ProProductModal businessId={businessId} item={editing as Product|null} busy={busy} setBusy={setBusy} close={close} done={()=>{close();toast("Product mehfooz ho gaya");void reloadProducts()}}/>}
+    {modal==="transaction"&&<ProTransactionModal businessId={businessId} item={editing as Tx|null} defaultType={defaultTxType} contacts={contacts} products={products} busy={busy} setBusy={setBusy} close={close} done={()=>{close();toast("Transaction, calculation aur stock update ho gaye");void reloadTransactionsAndProducts()}}/>}
     {modal==="adjustment"&&<StockAdjustmentModal businessId={businessId} item={editing as Product} busy={busy} setBusy={setBusy} close={close} done={()=>{close();toast("Stock adjustment save ho gayi");void reloadProducts();if(section==="settings")void loadSettingsData(businessId,true)}}/>}
     {notice&&<div className="toast">✓ {notice}</div>}
   </main>
@@ -249,9 +256,9 @@ function PanelHead({title,sub}:{title:string;sub:string}){return <div className=
 function Empty({text}:{text:string}){return <div className="empty"><i>⌕</i><b>{text}</b><p>Naya record add karke shuru karein.</p></div>}
 
 function Contacts({rows,open,remove,canManage}:{rows:Contact[];open:(m:Modal,i?:Contact)=>void;remove:(t:"contacts",id:string,l:string)=>void;canManage:boolean}){return <article className="panel full"><PanelHead title="Customer aur supplier khatay" sub="Archive se purani ledger history mehfooz rehti hai"/><div className="cards">{rows.map(x=><div className="contactCard" key={x.id}><i>{x.name.split(" ").map(s=>s[0]).slice(0,2).join("")}</i><span><small>{x.type==="customer"?"Customer":"Supplier"}</small><b>{x.name}</b><em>{x.phone||x.email||"No contact"}</em></span><section><small>Opening due</small><b>{money(x.opening_balance)}</b>{canManage&&<div><button onClick={()=>open("contact",x)}>Edit</button><button className="danger" onClick={()=>remove("contacts",x.id,x.name)}>Archive</button></div>}</section></div>)}{!rows.length&&<Empty text="Koi active khata nahi mila"/>}</div></article>}
-function Products({rows,open,remove,canManage}:{rows:Product[];open:(m:Modal,i?:Product)=>void;remove:(t:"products",id:string,l:string)=>void;canManage:boolean}){return <article className="panel full"><PanelHead title="Stock inventory" sub="Stock sirf sale, purchase ya audited adjustment se change hota hai"/><div className="productGrid">{rows.map(x=><div className="productCard" key={x.id}><div><i>{x.name[0]}</i><small>{x.sku||"NO SKU"}</small></div><h3>{x.name}</h3><section><span><small>Stock</small><b>{x.stock_quantity} {x.unit}</b></span><span><small>Sale rate</small><b>{money(x.sale_price)}</b></span></section><p className="purchaseRate">Current purchase rate: <b>{money(x.purchase_price)}</b></p><em className={Number(x.stock_quantity)<=Number(x.low_stock_level)?"low":"ok"}>{Number(x.stock_quantity)<=Number(x.low_stock_level)?"Low stock":"Stock okay"}</em>{canManage&&<footer><button onClick={()=>open("product",x)}>Edit</button><button onClick={()=>open("adjustment",x)}>Adjust</button><button className="danger" onClick={()=>remove("products",x.id,x.name)}>Delete</button></footer>}</div>)}{!rows.length&&<Empty text="Koi product nahi mila"/>}</div></article>}
+function Products({rows,open,remove,canManage}:{rows:Product[];open:(m:Modal,i?:Product)=>void;remove:(t:"products",id:string,l:string)=>void;canManage:boolean}){return <article className="panel full"><PanelHead title="Stock inventory" sub="Stock sirf sale, purchase ya audited adjustment se change hota hai"/><div className="productGrid">{rows.map(x=><div className="productCard" key={x.id}><div><i>{x.name[0]}</i><small>{x.sku||"NO SKU"}</small></div><h3>{x.name}</h3><section><span><small>Stock</small><b>{x.stock_quantity} {x.unit}</b></span><span><small>Sale rate</small><b>{money(x.sale_price)}</b></span></section><p className="purchaseRate">Purchase: <b>{money(x.purchase_price)}</b> / {x.unit} · Sale: <b>{money(x.sale_price)}</b> / {x.unit} · Margin: <b>{money(Number(x.sale_price)-Number(x.purchase_price))}</b> / {x.unit}</p><em className={Number(x.stock_quantity)<=Number(x.low_stock_level)?"low":"ok"}>{Number(x.stock_quantity)<=Number(x.low_stock_level)?"Low stock":"Stock okay"}</em>{canManage&&<footer><button onClick={()=>open("product",x)}>Edit</button><button onClick={()=>open("adjustment",x)}>Adjust</button><button className="danger" onClick={()=>remove("products",x.id,x.name)}>Archive</button></footer>}</div>)}{!rows.length&&<Empty text="Koi product nahi mila"/>}</div></article>}
 function Transactions({title,rows,contacts,products,open,remove,canManage}:{title:string;rows:Tx[];contacts:Contact[];products:Product[];open:(m:Modal,i?:Tx)=>void;remove:(t:"transactions",id:string,l:string)=>void;canManage:boolean}){return <article className="panel full"><PanelHead title={title} sub="Financial entries delete nahi hotin — void/reversal audit trail rehta hai"/><TxTable rows={rows} contacts={contacts} products={products} open={open} remove={remove} canManage={canManage}/></article>}
-function TxTable({rows,contacts,products,open,remove,canManage=true}:{rows:Tx[];contacts:Contact[];products:Product[];open:(m:Modal,i?:Tx)=>void;remove?:(t:"transactions",id:string,l:string)=>void;canManage?:boolean}){return <div className="tableWrap">{!rows.length?<Empty text="Koi transaction nahi mili"/>:<table><thead><tr><th>Date</th><th>Reference</th><th>Naam</th><th>Item / Qty</th><th>Type</th><th>Amount</th><th>Paid</th><th>Status</th><th>Action</th></tr></thead><tbody>{rows.map(x=><tr key={x.id}><td data-label="Date">{x.transaction_date}</td><td data-label="Reference"><b>{x.reference||"—"}</b></td><td data-label="Naam">{contacts.find(c=>c.id===x.contact_id)?.name||"Walk-in / General"}</td><td data-label="Item / Qty">{products.find(p=>p.id===x.product_id)?.name||"—"}{x.quantity?` × ${x.quantity}`:""}</td><td data-label="Type">{txLabel[x.type]}</td><td data-label="Amount"><strong>{money(x.amount)}</strong></td><td data-label="Paid">{money(x.paid_amount)}</td><td data-label="Status"><span className={`status ${x.status}`}>{x.status}</span></td><td data-label="Action">{canManage?<><button onClick={()=>open("transaction",x)}>Edit</button>{remove&&<button className="danger" onClick={()=>remove("transactions",x.id,x.reference||"Transaction")}>Void</button>}</>:"View only"}</td></tr>)}</tbody></table>}</div>}
+function TxTable({rows,contacts,products,open,remove,canManage=true}:{rows:Tx[];contacts:Contact[];products:Product[];open:(m:Modal,i?:Tx)=>void;remove?:(t:"transactions",id:string,l:string)=>void;canManage?:boolean}){return <div className="tableWrap">{!rows.length?<Empty text="Koi transaction nahi mili"/>:<table><thead><tr><th>Date</th><th>Reference</th><th>Naam</th><th>Item / Qty</th><th>Type</th><th>Gross</th><th>Discount</th><th>Net</th><th>Paid</th><th>Due</th><th>Status</th><th>Action</th></tr></thead><tbody>{rows.map(x=><tr key={x.id}><td data-label="Date">{x.transaction_date}</td><td data-label="Reference"><b>{x.reference||"—"}</b></td><td data-label="Naam">{contacts.find(c=>c.id===x.contact_id)?.name||"Walk-in / General"}</td><td data-label="Item / Qty">{products.find(p=>p.id===x.product_id)?.name||"—"}{x.quantity?` × ${x.quantity}${x.unit_price?` @ ${money(x.unit_price)}`:""}`:""}</td><td data-label="Type">{txLabel[x.type]}</td><td data-label="Gross">{money(x.gross_amount||x.amount)}</td><td data-label="Discount">{x.discount_amount?money(x.discount_amount):"—"}</td><td data-label="Net"><strong>{money(x.amount)}</strong></td><td data-label="Paid">{money(x.paid_amount)}</td><td data-label="Due">{x.amount>x.paid_amount?money(x.amount-x.paid_amount):"—"}</td><td data-label="Status"><span className={`status ${x.status}`}>{x.status}</span></td><td data-label="Action">{canManage?<><button onClick={()=>open("transaction",x)}>Edit</button>{remove&&<button className="danger" onClick={()=>remove("transactions",x.id,x.reference||"Transaction")}>Void</button>}</>:"View only"}</td></tr>)}</tbody></table>}</div>}
 function CashLedger({rows,contacts}:{rows:Tx[];contacts:Contact[]}){const cashRows=rows.map(tx=>({tx,in:cashInForTransaction(tx),out:cashOutForTransaction(tx)})).filter(x=>x.in>0||x.out>0);return <article className="panel full"><PanelHead title="Cash ledger" sub="Sirf asal cash movement — unpaid invoices cash mein count nahi hote"/><div className="tableWrap">{!cashRows.length?<Empty text="Koi cash movement nahi"/>:<table><thead><tr><th>Date</th><th>Type</th><th>Naam</th><th>Reference</th><th>Cash In</th><th>Cash Out</th></tr></thead><tbody>{cashRows.map(({tx,in:cashIn,out:cashOut})=><tr key={tx.id}><td data-label="Date">{tx.transaction_date}</td><td data-label="Type">{txLabel[tx.type]}</td><td data-label="Naam">{contacts.find(c=>c.id===tx.contact_id)?.name||"General"}</td><td data-label="Reference">{tx.reference||"—"}</td><td data-label="Cash In"><b>{cashIn?money(cashIn):"—"}</b></td><td data-label="Cash Out"><b>{cashOut?money(cashOut):"—"}</b></td></tr>)}</tbody></table>}</div></article>}
 function Reports({accounting,contacts,transactions}:{accounting:Accounting;contacts:Contact[];transactions:Tx[]}){return <><div className="reportHero"><div><small>LIVE BUSINESS HEALTH</small><h2>{accounting.netProfit>=0?"Business operating profit positive hai":"Expenses aur margins review karein"}</h2><p>Profit COGS snapshots aur recorded expenses se calculate hota hai.</p></div><strong>{money(accounting.netProfit)}<small>Net operating profit</small></strong></div><div className="reportGrid"><article className="panel"><PanelHead title="Profit summary" sub="Sales − COGS − expenses"/><div className="reportRows"><p><span>Sales revenue</span><b>{money(accounting.saleRevenue)}</b></p><p><span>Cost of goods sold</span><b>{money(accounting.cogs)}</b></p><p><span>Gross profit</span><b>{money(accounting.grossProfit)}</b></p><p><span>Expenses</span><b>{money(accounting.expenses)}</b></p><p className="total"><span>Net operating profit</span><b>{money(accounting.netProfit)}</b></p></div></article><article className="panel"><PanelHead title="Cash summary" sub="Paid cash only"/><div className="reportRows"><p><span>Cash in</span><b>{money(accounting.cashIn)}</b></p><p><span>Cash out</span><b>{money(accounting.cashOut)}</b></p><p className="total"><span>Cash balance</span><b>{money(accounting.cashBalance)}</b></p></div></article></div><div className="reportGrid"><article className="panel"><PanelHead title="Receivables & payables" sub="Opening due + invoices − later payments"/><div className="reportRows"><p><span>Customers se wasooli</span><b>{money(accounting.receivables)}</b></p><p><span>Suppliers ko adayegi</span><b>{money(accounting.payables)}</b></p><p><span>Customer advance</span><b>{money(accounting.customerAdvance)}</b></p><p><span>Supplier advance</span><b>{money(accounting.supplierAdvance)}</b></p></div></article><article className="panel"><PanelHead title="Ledger volume" sub="Current selected business"/><div className="reportRows"><p><span>Active customers/suppliers</span><b>{contacts.filter(c=>c.is_active).length}</b></p><p><span>Transactions</span><b>{transactions.filter(t=>!t.is_void).length}</b></p><p><span>Inventory purchases</span><b>{money(accounting.purchaseTotal)}</b></p></div></article></div></>}
 

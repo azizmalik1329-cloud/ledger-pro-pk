@@ -1,0 +1,105 @@
+/* Ledger Pro PK visual polish
+   Layout-only layer: no auth, accounting or data behavior lives here. */
+
+:root{
+  --radius-sm:10px;
+  --radius-md:14px;
+  --radius-lg:18px;
+  --control-h:42px;
+}
+
+html{scroll-behavior:smooth}
+body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;line-height:1.45}
+button,input,select,textarea{font-size:13px}
+button{transition:transform .14s ease,box-shadow .14s ease,background-color .14s ease,border-color .14s ease}
+button:active{transform:translateY(1px)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid #2563eb2b;outline-offset:2px}
+
+/* Desktop application shell */
+.app>aside{width:260px;padding:25px 18px}
+.workspace{margin-left:260px;width:calc(100% - 260px)}
+.workspace>header{height:72px;padding:0 30px;gap:18px}
+.content{max-width:1360px;padding:30px 30px 82px}
+.brand{padding-bottom:24px}.brand strong{font-size:17px}.brand small,.app>aside small{font-size:10px}
+.business{padding:11px;border-radius:14px;margin-bottom:20px}.business>i{width:36px;height:36px}
+.app>aside nav button{min-height:48px;padding:10px 12px;border-radius:12px}
+.app>aside nav b{font-size:13px}.app>aside nav small{font-size:10px;margin-top:2px}
+.menuLabel{font-size:10px;margin:6px 0 7px}
+.search{height:42px;border-radius:12px}.search input{font-size:13px}
+.topActions>button{min-height:42px;border-radius:11px}
+.heading{margin-bottom:24px;gap:20px}.heading h1{font-size:29px;letter-spacing:-.45px;margin:4px 0 5px}.heading p{font-size:12px}.heading small{font-size:10px;letter-spacing:.2px}
+.primary,.ghost{min-height:42px;padding:10px 16px;border-radius:11px;font-size:12px}
+
+/* Dashboard hierarchy */
+.stats{gap:16px;margin-bottom:17px}.stat{border-radius:16px;padding:21px;min-height:132px}.stat>small{font-size:11px}.stat>strong{font-size:22px;letter-spacing:-.25px}.stat p{font-size:10px}.stat>i{width:40px;height:40px;border-radius:11px}
+.panel{border-radius:16px;margin-bottom:17px}.panelHead{padding:18px 20px}.panelHead h3{font-size:14px}.panelHead p{font-size:10px}
+.grid2,.reportGrid{gap:17px}.quick{gap:11px;padding:18px}.quick button{min-height:96px;border-radius:13px}.quick b{font-size:12px}.quick small{font-size:9px}
+.alerts{padding:7px 18px}.alerts>div{padding:12px 0}.alerts b{font-size:11px}.alerts small,.alerts em{font-size:9px}
+
+/* Contacts and stock */
+.cards,.productGrid{gap:14px;padding:18px}.contactCard,.productCard{border-radius:15px;padding:16px;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}.contactCard:hover,.productCard:hover{border-color:#cfd8e7;box-shadow:0 10px 28px #12213a0b;transform:translateY(-1px)}
+.contactCard span small,.contactCard section small,.productCard>div small,.productCard section small{font-size:9px}.contactCard span b{font-size:13px}.contactCard span em{font-size:10px}.contactCard section>b{font-size:13px}
+.productCard h3{font-size:14px;margin:13px 0}.productCard section small,.productCard section b{font-size:10px}.purchaseRate{font-size:10px;line-height:1.5;color:var(--muted)}
+.contactCard button,.tableWrap td button,.productCard footer button{min-height:32px;padding:7px 10px;border-radius:8px;font-size:9px;font-weight:750}
+.productCard footer{display:flex;justify-content:flex-end;gap:5px;flex-wrap:wrap}.productCard footer button{margin-left:0}
+
+/* Tables */
+.tableWrap{max-width:100%;overflow:auto;scrollbar-width:thin}.tableWrap th,.tableWrap td{padding:14px 17px;font-size:11px}.tableWrap th{position:sticky;top:0;z-index:2;background:var(--panel);font-size:9px;letter-spacing:.35px}.tableWrap tbody tr{transition:background-color .12s ease}.tableWrap tbody tr:hover{background:#2563eb08}.app.dark .tableWrap tbody tr:hover{background:#ffffff07}
+.status{font-size:9px;padding:5px 9px;font-weight:700}.empty{padding:54px 22px}.empty b{font-size:13px}.empty p{font-size:10px}
+
+/* Reports/settings */
+.reportHero{border-radius:17px;padding:29px}.reportHero h2{font-size:23px}.reportHero p{font-size:11px}.reportHero>strong{font-size:22px}
+.reportRows{padding:13px 20px}.reportRows p{font-size:11px;padding:13px 0}.reportRows .total{font-size:13px}
+.settingsSummary>div{border-radius:15px}.settingsForm label,.memberForm{font-size:10px}.settingsForm input,.settingsForm textarea,.settingsForm select,.memberForm input,.memberForm select{min-height:42px}
+.settingsMessage{font-size:11px}
+.fieldHint{display:block;margin-top:5px;color:var(--muted);font-size:9px;font-weight:500;line-height:1.4}.modalNote{font-size:10px;color:var(--muted);background:var(--bg);border:1px solid var(--line);padding:10px 12px;border-radius:10px;line-height:1.5}.adjustmentSummary{display:flex;justify-content:space-between;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:14px}.adjustmentSummary small{color:var(--muted);font-size:10px}.adjustmentSummary b{font-size:14px}
+
+/* Dialogs */
+.overlay{padding:24px}.modal{width:min(640px,100%);border-radius:20px;padding:24px}.modal>header h2{font-size:21px}.modal>header small{font-size:9px}.modal form>label,.formRow label{font-size:10px}.modal input,.modal select,.modal textarea{min-height:42px;border-radius:11px;padding:11px 12px}.modalActions{padding-top:17px}.toast{right:26px;bottom:26px;border-radius:12px;padding:13px 17px;font-size:12px}
+
+/* Account shell refinement */
+.shellAccountTrigger{height:44px!important;border-radius:12px!important}.shellAccountCopy b{font-size:11px}.shellAccountCopy small{font-size:9px}.shellAccountMenu{border-radius:16px;padding:9px}.shellAccountMenu>a,.shellAccountMenu>button{min-height:47px}.shellAccountMenu b{font-size:11px}.shellAccountMenu small{font-size:9px}.shellAccountMeta small{font-size:8px}.shellAccountMeta b{font-size:10px}
+.shellProfileCard form label{font-size:9px}.shellProfileCard input{min-height:40px}.shellProfileCard form button{min-height:38px;font-size:10px}
+
+/* Auth */
+.auth>form{border-radius:20px;padding:34px}.auth form label{font-size:10px}.auth form input{min-height:44px;border-radius:11px}.auth form>p{font-size:11px}
+
+/* Admin */
+.adminApp>aside{width:242px;padding:25px 17px}.adminApp>section{margin-left:242px;padding:30px;max-width:1600px}.adminApp nav button{min-height:45px;border-radius:11px;font-size:12px}.adminApp>section>header{margin-bottom:24px}.adminApp h1{font-size:28px;letter-spacing:-.35px}.adminApp header input{min-height:42px;border-radius:11px;font-size:12px}.adminStats{gap:13px;margin-bottom:17px}.adminStats article{padding:18px;border-radius:15px}.adminStats small{font-size:10px}.adminStats b{font-size:22px}.adminQuick{gap:13px;margin-bottom:17px}.adminQuick button{min-height:88px;border-radius:15px;padding:19px}.adminQuick b{font-size:13px}.adminQuick small{font-size:10px}.adminApp>section>article{border-radius:15px;overflow:hidden}.adminHead{padding:19px}.adminHead h2{font-size:16px}.adminHead p{font-size:10px}.adminHead button{min-height:38px}.adminTable th,.adminTable td{padding:14px 17px;font-size:11px}.adminTable th{font-size:9px;background:var(--apanel);position:sticky;top:0}.adminTable select{min-height:36px;font-size:10px}.adminTable button{min-height:32px;font-size:9px;padding:7px 10px}
+
+@media(max-width:1180px){
+  .app>aside{width:236px}.workspace{margin-left:236px;width:calc(100% - 236px)}
+  .content{padding-left:22px;padding-right:22px}.workspace>header{padding:0 22px}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}.productGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .adminStats{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+
+@media(max-width:760px){
+  body{font-size:13px}
+  .app{display:block}.app>aside{display:none}.workspace{margin:0;width:100%}.workspace>header{height:64px;padding:0 12px;gap:9px}
+  .mobileTitle b{font-size:13px}.mobileBusinessSwitch{font-size:9px}
+  .shellMobileSettings{width:38px!important;height:38px!important;border-radius:10px!important}
+  .shellMobileRail{height:64px;padding:7px 7px;gap:5px}.shellMobileRail button{min-width:72px;height:49px}.shellMobileRail button span{font-size:8px}.shellMobileRail button i{font-size:16px}
+  .app .content{padding:80px 13px 30px!important}.mobileSearchBox{top:128px!important}
+  .heading{display:grid;grid-template-columns:1fr;align-items:start;gap:14px;margin-bottom:18px}.heading h1{font-size:24px;margin-top:3px}.heading p{font-size:11px;line-height:1.5}.heading>div:last-child{display:grid;grid-template-columns:1fr 1fr;width:100%}.heading>div:last-child button{width:100%}
+  .stats{grid-template-columns:1fr 1fr;gap:10px}.stat{min-height:116px;padding:15px;border-radius:14px}.stat>i{width:34px;height:34px}.stat>small{font-size:10px}.stat>strong{font-size:17px;word-break:break-word}.stat p{font-size:9px}
+  .grid2,.reportGrid,.settingsGrid{grid-template-columns:1fr!important;gap:0}.panel{border-radius:14px;margin-bottom:12px}.panelHead{padding:15px 14px}.panelHead h3{font-size:13px}.panelHead p{font-size:9px}
+  .quick{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:12px}.quick button{min-height:88px;padding:12px 5px}.quick i{font-size:19px}.quick b{font-size:10px}.quick small{font-size:8px}
+  .cards,.productGrid{grid-template-columns:1fr!important;padding:12px;gap:10px}.contactCard{grid-template-columns:44px minmax(0,1fr);padding:13px}.contactCard section{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;text-align:left;border-top:1px solid var(--line);padding-top:10px}.contactCard section>div{margin-left:auto}.contactCard section>b{margin:0 10px}.productCard{padding:14px}.productCard footer{justify-content:stretch}.productCard footer button{flex:1;min-height:36px}
+  .tableWrap{padding:9px}.tableWrap table,.tableWrap tbody{display:block}.tableWrap thead{display:none}.tableWrap tr{display:block;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;padding:8px 10px;background:var(--panel)}.tableWrap td{display:flex;justify-content:space-between;gap:18px;align-items:center;border-bottom:1px dashed var(--line);padding:9px 2px;font-size:10px;white-space:normal;text-align:right}.tableWrap td:last-child{border-bottom:0}.tableWrap td::before{content:attr(data-label);font-size:8px;color:var(--muted);font-weight:750;text-transform:uppercase;letter-spacing:.25px;text-align:left}.tableWrap td button{min-height:34px}
+  .reportHero{display:block;padding:20px;border-radius:14px}.reportHero h2{font-size:19px}.reportHero>strong{display:block;text-align:left;margin-top:17px;font-size:20px}.reportRows{padding:8px 14px}.reportRows p{font-size:10px}
+  .settingsSummary{grid-template-columns:1fr!important;gap:9px}.settingsSummary>div{padding:14px}.formRow{grid-template-columns:1fr;gap:0}
+  .overlay{align-items:end;padding:0}.modal{width:100%;max-height:90dvh;border-radius:20px 20px 0 0;padding:18px 15px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -20px 60px #0003}.modal>header{position:sticky;top:-18px;background:var(--panel);z-index:4;padding:14px 0 8px;margin-bottom:10px}.modal>header h2{font-size:19px}.modal input,.modal select,.modal textarea{font-size:16px}.modalActions{position:sticky;bottom:calc(-18px - env(safe-area-inset-bottom));background:var(--panel);padding:12px 0 calc(12px + env(safe-area-inset-bottom));margin-top:6px}.modalActions button{flex:1}
+  .toast{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));text-align:center;font-size:11px}
+  .auth{display:block}.auth>section{min-height:auto;padding:34px 22px 28px}.authBrand{margin-bottom:28px}.auth h1{font-size:34px}.auth>section>p{font-size:12px}.auth>form{width:calc(100% - 24px);margin:14px auto 24px;padding:24px;border-radius:17px}.auth form h2{font-size:22px}
+
+  .adminApp>aside{width:100%;height:66px;padding:10px 12px}.adminApp>section{margin:0;padding:18px 12px 30px;max-width:none}.adminApp h1{font-size:23px}.adminApp>section>header{gap:12px;margin-bottom:18px}.adminStats{grid-template-columns:1fr 1fr;gap:9px}.adminStats article{padding:14px}.adminStats b{font-size:19px}.adminQuick{grid-template-columns:1fr;gap:9px}.adminQuick button{min-height:72px;padding:15px}.adminTable{padding:8px}.adminTable tr{border-radius:12px;padding:9px}.adminTable td{font-size:10px;padding:7px 4px;gap:12px}.adminTable td::before{font-size:8px}.adminTable button,.adminTable select{min-height:34px}
+}
+
+@media(max-width:390px){
+  .app .content{padding-left:10px!important;padding-right:10px!important}
+  .stats{gap:8px}.stat{padding:13px;min-height:112px}.stat>strong{font-size:15px}.quick b{font-size:9px}
+  .heading h1{font-size:22px}.heading>div:last-child{grid-template-columns:1fr}
+  .shellMobileRail button{min-width:66px}.shellMobileRail button span{font-size:7.5px}
+  .adminStats{grid-template-columns:1fr 1fr}.adminApp>section{padding-left:10px;padding-right:10px}
+}

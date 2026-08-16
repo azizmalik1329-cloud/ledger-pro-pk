@@ -30,14 +30,14 @@ function partyBalance(contact:Contact,transactions:Tx[],excludeId?:string){
   return transactions.filter(t=>t.id!==excludeId).reduce((sum,tx)=>sum+balanceDelta(contact,tx),Number(contact.opening_balance||0));
 }
 
-export default function ProTransactionModal({businessId,item,defaultType,contacts,products,transactions=[],busy,setBusy,close,done,contactCreated}:{businessId:string;item:Tx|null;defaultType:TxType;contacts:Contact[];products:Product[];transactions?:Tx[];busy:boolean;setBusy:(v:boolean)=>void;close:()=>void;done:()=>void;contactCreated?:()=>void}){
+export default function ProTransactionModal({businessId,item,defaultType,presetContactId="",contacts,products,transactions=[],busy,setBusy,close,done,contactCreated}:{businessId:string;item:Tx|null;defaultType:TxType;presetContactId?:string;contacts:Contact[];products:Product[];transactions?:Tx[];busy:boolean;setBusy:(v:boolean)=>void;close:()=>void;done:()=>void;contactCreated?:()=>void}){
   const initialKind=item?.type||defaultType;
   const initialProduct=products.find(p=>p.id===item?.product_id);
   const initialQty=Number(item?.quantity||1);
   const fallbackRate=initialQty>0?Number(item?.gross_amount||item?.amount||0)/initialQty:0;
   const [kind,setKind]=useState<TxType>(initialKind);
-  const [contactId,setContactId]=useState(item?.contact_id||"");
-  const [partyMode,setPartyMode]=useState<PartyMode>(item?.contact_id?"ledger":"cash");
+  const [contactId,setContactId]=useState(item?.contact_id||presetContactId||"");
+  const [partyMode,setPartyMode]=useState<PartyMode>(item?.contact_id||presetContactId?"ledger":"cash");
   const [localContacts,setLocalContacts]=useState<Contact[]>(contacts);
   const [addingParty,setAddingParty]=useState(false);
   const [newPartyName,setNewPartyName]=useState("");

@@ -1,7 +1,7 @@
--- Ledger Pro PK Phase 1 accounting safety
--- Preserve historical ledger links, make transaction removal reversible,
--- keep purchase cost deterministic after purchase edits/voids/deletes,
--- and block direct stock/cost mutation after product creation.
+-- Ledger Pro PK Phase 1 accounting safety (compatibility rollout)
+-- Add archive/void/stock-adjustment primitives and deterministic purchase costing.
+-- Permission hardening is intentionally in the following migration so an older
+-- open browser tab can continue working during the short frontend rollout window.
 
 alter table public.products
   add column if not exists base_purchase_price numeric(14,2) not null default 0;
@@ -23,8 +23,8 @@ alter table public.transactions
 create index if not exists transactions_business_void_date_idx
   on public.transactions(business_id, is_void, transaction_date desc, created_at desc);
 
--- Product base cost is editable by a manager/owner. Current purchase_price remains
--- server-derived from the newest valid purchase when purchase history exists.
+-- Backwards-compatible product insert: older clients send purchase_price but not
+-- base_purchase_price. New clients send both. Never silently zero the rate.
 create or replace function private.sync_product_base_purchase_price()
 returns trigger
 language plpgsql
@@ -33,7 +33,11 @@ set search_path=''
 as $$
 begin
   if tg_op='INSERT' then
-    new.base_purchase_price := coalesce(new.base_purchase_price, new.purchase_price, 0);
+    if coalesce(new.base_purchase_price,0)=0 and coalesce(new.purchase_price,0)<>0 then
+      new.base_purchase_price := new.purchase_price;
+    else
+      new.base_purchase_price := coalesce(new.base_purchase_price,new.purchase_price,0);
+    end if;
     new.purchase_price := new.base_purchase_price;
     return new;
   end if;
@@ -185,8 +189,8 @@ $$;
 revoke all on function private.normalize_transaction() from public,anon,authenticated;
 
 -- Correctly undo/reapply inventory for edits and voids. Purchase-price refresh
--- runs for both the old and new product so editing an older purchase cannot leave
--- a stale cost behind.
+-- runs for both old/new products so editing or voiding a purchase cannot leave a
+-- stale cost behind.
 create or replace function private.sync_transaction_stock()
 returns trigger
 language plpgsql
@@ -233,7 +237,6 @@ end;
 $$;
 revoke all on function private.sync_transaction_stock() from public,anon,authenticated;
 
--- Archive contacts rather than deleting ledger identity.
 create or replace function private.archive_contact_impl(p_business_id uuid,p_contact_id uuid)
 returns void
 language plpgsql
@@ -270,7 +273,6 @@ as $$ select private.archive_contact_impl(p_business_id,p_contact_id) $$;
 revoke all on function public.archive_contact(uuid,uuid) from public,anon;
 grant execute on function public.archive_contact(uuid,uuid) to authenticated;
 
--- Void financial transactions instead of hard-deleting them.
 create or replace function private.void_transaction_impl(p_business_id uuid,p_transaction_id uuid,p_reason text default '')
 returns void
 language plpgsql
@@ -323,7 +325,6 @@ as $$ select private.void_transaction_impl(p_business_id,p_transaction_id,p_reas
 revoke all on function public.void_transaction(uuid,uuid,text) from public,anon;
 grant execute on function public.void_transaction(uuid,uuid,text) to authenticated;
 
--- Explicit stock adjustment. Direct stock edits are removed below.
 create or replace function private.adjust_product_stock_impl(p_business_id uuid,p_product_id uuid,p_delta numeric,p_reason text)
 returns void
 language plpgsql
@@ -369,19 +370,3 @@ set search_path=''
 as $$ select private.adjust_product_stock_impl(p_business_id,p_product_id,p_delta,p_reason) $$;
 revoke all on function public.adjust_product_stock(uuid,uuid,numeric,text) from public,anon;
 grant execute on function public.adjust_product_stock(uuid,uuid,numeric,text) to authenticated;
-
--- Historical safety: contacts/transactions can no longer be hard deleted by app users.
-drop policy if exists contacts_delete_manager on public.contacts;
-drop policy if exists transactions_delete_manager on public.transactions;
-revoke delete on public.contacts from authenticated;
-revoke delete on public.transactions from authenticated;
-
--- Protect server-derived transaction fields while preserving normal edit fields.
-revoke update on public.transactions from authenticated;
-grant update(contact_id,product_id,quantity,type,reference,amount,paid_amount,transaction_date,notes,status)
-  on public.transactions to authenticated;
-
--- Protect stock_quantity and current purchase_price after product creation.
-revoke update on public.products from authenticated;
-grant update(name,sku,unit,sale_price,base_purchase_price,low_stock_level,is_active)
-  on public.products to authenticated;

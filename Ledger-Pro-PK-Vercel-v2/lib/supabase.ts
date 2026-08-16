@@ -19,9 +19,49 @@ type BootstrapResult = {
 };
 
 let bootstrapFlight: Promise<BootstrapResult> | null = null;
-let lastBootstrap: { userId: string; data: AccountBootstrap; at: number } | null = null;
+let lastBootstrap: { userId: string; accessToken: string; data: AccountBootstrap; at: number } | null = null;
 
-const sleep = (ms: number) => new Promise(resolve => window.setTimeout(resolve, ms));
+const sleep = (ms: number) => new Promise(resolve => globalThis.setTimeout(resolve, ms));
+
+async function callBootstrapWithToken(accessToken: string): Promise<BootstrapResult> {
+  try {
+    const response = await fetch(`${url}/rest/v1/rpc/current_account_bootstrap`, {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        apikey: publishableKey,
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+    });
+
+    const text = await response.text();
+    let payload: unknown = null;
+    if (text) {
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = null;
+      }
+    }
+
+    if (!response.ok) {
+      const message = payload && typeof payload === "object" && "message" in payload
+        ? String((payload as { message?: unknown }).message || `Bootstrap HTTP ${response.status}`)
+        : `Bootstrap HTTP ${response.status}`;
+      return { data: null, error: new Error(message) };
+    }
+
+    return {
+      data: payload && typeof payload === "object" ? payload as AccountBootstrap : null,
+      error: null,
+    };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
 
 async function readAccountBootstrap(): Promise<BootstrapResult> {
   const { data: sessionData, error: sessionError } = await baseSupabase.auth.getSession();
@@ -37,7 +77,12 @@ async function readAccountBootstrap(): Promise<BootstrapResult> {
   }
 
   const userId = session.user.id;
-  if (lastBootstrap?.userId === userId && Date.now() - lastBootstrap.at < 5000) {
+  const accessToken = session.access_token;
+  if (
+    lastBootstrap?.userId === userId &&
+    lastBootstrap.accessToken === accessToken &&
+    Date.now() - lastBootstrap.at < 5000
+  ) {
     return { data: lastBootstrap.data, error: null };
   }
 
@@ -46,8 +91,11 @@ async function readAccountBootstrap(): Promise<BootstrapResult> {
   bootstrapFlight = (async () => {
     let lastError: any = null;
 
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-      const { data, error } = await baseSupabase.rpc("current_account_bootstrap");
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      // Do not let the SDK choose an implicit/possibly stale Authorization token
+      // during auth initialization. Bind this account bootstrap to the exact access
+      // token belonging to the session we just read above.
+      const { data, error } = await callBootstrapWithToken(accessToken);
       const payload = data && typeof data === "object" ? data as AccountBootstrap : null;
 
       if (
@@ -55,12 +103,12 @@ async function readAccountBootstrap(): Promise<BootstrapResult> {
         payload?.user_id === userId &&
         Array.isArray(payload.memberships)
       ) {
-        lastBootstrap = { userId, data: payload, at: Date.now() };
+        lastBootstrap = { userId, accessToken, data: payload, at: Date.now() };
         return { data: payload, error: null };
       }
 
       lastError = error || new Error("Authenticated account bootstrap did not match the active session.");
-      if (attempt < 5) await sleep(120 * (attempt + 1));
+      if (attempt < 3) await sleep(150 * (attempt + 1));
     }
 
     return { data: null, error: lastError };

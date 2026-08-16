@@ -22,6 +22,16 @@ test("payments and expenses are full cash movements",()=>{
   assert.equal(cashOutForTransaction({type:"expense",amount:500,paid_amount:500}),500);
 });
 
+test("voided entries have no accounting or cash effect",()=>{
+  const voidSale={type:"sale" as const,contact_id:"customer",amount:10000,paid_amount:4000,cost_amount:6000,is_void:true};
+  assert.equal(cashInForTransaction(voidSale),0);
+  const s=summarizeAccounting([voidSale],[{id:"customer",type:"customer" as const,opening_balance:0}]);
+  assert.equal(s.saleRevenue,0);
+  assert.equal(s.cogs,0);
+  assert.equal(s.cashIn,0);
+  assert.equal(s.receivables,0);
+});
+
 test("summary calculates profit cash receivable and payable separately",()=>{
   const contacts=[
     {id:"customer",type:"customer" as const,opening_balance:1000},

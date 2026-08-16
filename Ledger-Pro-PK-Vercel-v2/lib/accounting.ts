@@ -6,6 +6,7 @@ export type LedgerTxLike = {
   amount: number;
   paid_amount: number;
   cost_amount?: number | null;
+  is_void?: boolean | null;
 };
 
 export type LedgerContactLike = {
@@ -20,24 +21,27 @@ const num = (value: unknown) => {
 };
 
 export function cashInForTransaction(tx: LedgerTxLike) {
+  if (tx.is_void) return 0;
   if (tx.type === "sale") return num(tx.paid_amount);
   if (tx.type === "payment_in") return num(tx.amount);
   return 0;
 }
 
 export function cashOutForTransaction(tx: LedgerTxLike) {
+  if (tx.is_void) return 0;
   if (tx.type === "purchase") return num(tx.paid_amount);
   if (tx.type === "payment_out" || tx.type === "expense") return num(tx.amount);
   return 0;
 }
 
 export function summarizeAccounting(transactions: LedgerTxLike[], contacts: LedgerContactLike[]) {
-  const saleRevenue = transactions.filter((tx) => tx.type === "sale").reduce((sum, tx) => sum + num(tx.amount), 0);
-  const purchaseTotal = transactions.filter((tx) => tx.type === "purchase").reduce((sum, tx) => sum + num(tx.amount), 0);
-  const cogs = transactions.filter((tx) => tx.type === "sale").reduce((sum, tx) => sum + num(tx.cost_amount), 0);
-  const expenses = transactions.filter((tx) => tx.type === "expense").reduce((sum, tx) => sum + num(tx.amount), 0);
-  const cashIn = transactions.reduce((sum, tx) => sum + cashInForTransaction(tx), 0);
-  const cashOut = transactions.reduce((sum, tx) => sum + cashOutForTransaction(tx), 0);
+  const activeTransactions = transactions.filter((tx) => !tx.is_void);
+  const saleRevenue = activeTransactions.filter((tx) => tx.type === "sale").reduce((sum, tx) => sum + num(tx.amount), 0);
+  const purchaseTotal = activeTransactions.filter((tx) => tx.type === "purchase").reduce((sum, tx) => sum + num(tx.amount), 0);
+  const cogs = activeTransactions.filter((tx) => tx.type === "sale").reduce((sum, tx) => sum + num(tx.cost_amount), 0);
+  const expenses = activeTransactions.filter((tx) => tx.type === "expense").reduce((sum, tx) => sum + num(tx.amount), 0);
+  const cashIn = activeTransactions.reduce((sum, tx) => sum + cashInForTransaction(tx), 0);
+  const cashOut = activeTransactions.reduce((sum, tx) => sum + cashOutForTransaction(tx), 0);
 
   let receivables = 0;
   let payables = 0;
@@ -46,7 +50,7 @@ export function summarizeAccounting(transactions: LedgerTxLike[], contacts: Ledg
 
   for (const contact of contacts) {
     const opening = num(contact.opening_balance);
-    const linked = transactions.filter((tx) => tx.contact_id === contact.id);
+    const linked = activeTransactions.filter((tx) => tx.contact_id === contact.id);
 
     if (contact.type === "customer") {
       const invoiceDue = linked

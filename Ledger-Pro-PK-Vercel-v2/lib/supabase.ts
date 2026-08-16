@@ -22,6 +22,44 @@ let bootstrapFlight: Promise<BootstrapResult> | null = null;
 let lastBootstrap: { userId: string; accessToken: string; data: AccountBootstrap; at: number } | null = null;
 
 const sleep = (ms: number) => new Promise(resolve => globalThis.setTimeout(resolve, ms));
+const nowSeconds = () => Math.floor(Date.now() / 1000);
+const SAFE_REFRESH_WINDOW_SECONDS = 120;
+
+// The UI shell previously forced refreshSession() while the business page was
+// still completing a cold-start bootstrap. Supabase refresh tokens rotate, so
+// an unnecessary forced refresh during app reopen/multiple-tab startup could
+// invalidate the persisted refresh token and make the next reopen look like a
+// different/unlinked account. If the current access token is still comfortably
+// valid, return the existing session instead of rotating the refresh token.
+async function refreshSessionSafely(currentSession?: Parameters<typeof baseSupabase.auth.refreshSession>[0]) {
+  const { data: current, error } = await baseSupabase.auth.getSession();
+  if (!currentSession && error) return { data: { user: null, session: null }, error };
+
+  const session = currentSession && "access_token" in currentSession
+    ? currentSession as typeof current.session
+    : current.session;
+
+  if (
+    session?.access_token &&
+    session.expires_at &&
+    session.expires_at - nowSeconds() > SAFE_REFRESH_WINDOW_SECONDS
+  ) {
+    return {
+      data: { user: session.user, session },
+      error: null,
+    };
+  }
+
+  return baseSupabase.auth.refreshSession(currentSession);
+}
+
+const authAdapter = new Proxy(baseSupabase.auth, {
+  get(target, property, receiver) {
+    if (property === "refreshSession") return refreshSessionSafely;
+    const value = Reflect.get(target, property, receiver);
+    return typeof value === "function" ? value.bind(target) : value;
+  },
+});
 
 async function callBootstrapWithToken(accessToken: string): Promise<BootstrapResult> {
   try {
@@ -140,6 +178,8 @@ const membershipReadAdapter = {
 
 export const supabase = new Proxy(baseSupabase, {
   get(target, property, receiver) {
+    if (property === "auth") return authAdapter;
+
     if (property === "from") {
       return (relation: string) => relation === "business_members"
         ? membershipReadAdapter

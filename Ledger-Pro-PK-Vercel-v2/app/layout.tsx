@@ -3,6 +3,7 @@ import "./globals.css";
 import "./audit-fixes.css";
 import UIShell from "./ui-shell";
 import "./polish.css";
+import "./shopkeeper-theme.css";
 
 export const metadata: Metadata = {
   title: "Ledger Pro PK",
@@ -15,7 +16,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#0b1730",
+  themeColor: "#163a63",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

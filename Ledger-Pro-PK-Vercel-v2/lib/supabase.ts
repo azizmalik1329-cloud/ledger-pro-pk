@@ -11,6 +11,14 @@ const supabaseClient = createClient(url, publishableKey, {
   },
 });
 
+// Ledger Pro supports the same account on multiple devices. Supabase signOut()
+// defaults to global scope, which can invalidate refresh sessions on the user's
+// other devices. Keep every existing logout button current-device-only unless a
+// caller explicitly requests another scope in the future.
+const signOut = supabaseClient.auth.signOut.bind(supabaseClient.auth);
+supabaseClient.auth.signOut = ((options) =>
+  signOut({ ...(options ?? {}), scope: options?.scope ?? "local" })) as typeof supabaseClient.auth.signOut;
+
 // Every authenticated app route already performs getSession() on mount. GoTrue
 // also emits INITIAL_SESSION to each new auth listener, which made the same
 // account bootstrap run twice (and sometimes three times around a fresh login).

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./audit-fixes.css";
 import UIShell from "./ui-shell";
+import "./polish.css";
 
 export const metadata: Metadata = {
   title: "Ledger Pro PK",

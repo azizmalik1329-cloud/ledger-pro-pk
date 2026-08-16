@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./audit-fixes.css";
+import UIShell from "./ui-shell";
 
 export const metadata: Metadata = {
   title: "Ledger Pro PK",
@@ -17,5 +18,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="en"><body>{children}<UIShell /></body></html>;
 }
